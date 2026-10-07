@@ -1,0 +1,1 @@
+{"name":"@mustafa-inks/database","version":"1.0.0","private":true,"scripts":{"generate":"prisma generate","push":"prisma db push","studio":"prisma studio"},"dependencies":{"@prisma/client":"^6.2.1","prisma":"^6.2.1"}}

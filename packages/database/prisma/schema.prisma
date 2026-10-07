@@ -1,0 +1,208 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "mysql"
+    url      = env("DATABASE_URL")
+}
+
+enum ItemType {
+    RAW
+    FINISHED
+    SERVICE
+}
+
+enum TxType {
+    PURCHASE
+    PURCHASE_RETURN
+    SALE
+    SALE_RETURN
+    PRODUCTION_CONSUME
+    PRODUCTION_OUTPUT
+    ADJUSTMENT
+}
+
+enum PaymentMethod {
+    CASH
+    BANK
+    CREDIT
+}
+
+model User {
+    id           Int      @id @default(autoincrement())
+    name         String
+    email        String   @unique
+    passwordHash String
+    role         String   @default("ADMIN")
+    createdAt    DateTime @default(now())
+}
+
+model Vendor {
+    id             Int        @id @default(autoincrement())
+    code           String     @unique
+    name           String
+    phone          String?
+    address        String?
+    openingBalance Decimal    @default(0)
+    balance        Decimal    @default(0)
+    createdAt      DateTime   @default(now())
+    purchases      Purchase[]
+}
+
+model Customer {
+    id             Int      @id @default(autoincrement())
+    code           String   @unique
+    name           String
+    phone          String?
+    address        String?
+    openingBalance Decimal  @default(0)
+    balance        Decimal  @default(0)
+    createdAt      DateTime @default(now())
+    sales          Sale[]
+}
+
+model Item {
+    id              Int               @id @default(autoincrement())
+    sku             String            @unique
+    name            String
+    type            ItemType
+    unit            String            @default("KG")
+    avgCost         Decimal           @default(0)
+    avgPurchaseRate Decimal           @default(0)
+    avgSellingRate  Decimal           @default(0)
+    qty             Decimal           @default(0)
+    reorderLevel    Decimal           @default(0)
+    active          Boolean           @default(true)
+    createdAt       DateTime          @default(now())
+    updatedAt       DateTime          @updatedAt
+    purchaseLines   PurchaseLine[]
+    saleLines       SaleLine[]
+    recipeInputs    RecipeLine[]
+    recipeOutputs   ProductionBatch[]
+    stockMoves      StockMove[]
+}
+
+model Purchase {
+    id        Int            @id @default(autoincrement())
+    invoiceNo String         @unique
+    date      DateTime       @default(now())
+    vendorId  Int
+    vendor    Vendor         @relation(fields: [vendorId], references: [id])
+    subtotal  Decimal
+    total     Decimal
+    paid      Decimal        @default(0)
+    notes     String?
+    lines     PurchaseLine[]
+    createdAt DateTime       @default(now())
+}
+
+model PurchaseLine {
+    id         Int      @id @default(autoincrement())
+    purchaseId Int
+    itemId     Int
+    qty        Decimal
+    rate       Decimal
+    amount     Decimal
+    purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+    item       Item     @relation(fields: [itemId], references: [id])
+}
+
+model Recipe {
+    id           Int               @id @default(autoincrement())
+    name         String
+    version      Int               @default(1)
+    outputItemId Int
+    outputQty    Decimal
+    active       Boolean           @default(true)
+    lines        RecipeLine[]
+    batches      ProductionBatch[]
+}
+
+model RecipeLine {
+    id         Int     @id @default(autoincrement())
+    recipeId   Int
+    itemId     Int
+    qty        Decimal
+    percentage Decimal
+    recipe     Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+    item       Item    @relation(fields: [itemId], references: [id])
+}
+
+model ProductionBatch {
+    id           Int      @id @default(autoincrement())
+    batchNo      String   @unique
+    recipeId     Int
+    outputItemId Int
+    plannedQty   Decimal
+    actualQty    Decimal
+    goodQty      Decimal
+    wastageQty   Decimal
+    totalCost    Decimal
+    costPerKg    Decimal
+    date         DateTime @default(now())
+    recipe       Recipe   @relation(fields: [recipeId], references: [id])
+    outputItem   Item     @relation(fields: [outputItemId], references: [id])
+}
+
+model Sale {
+    id            Int           @id @default(autoincrement())
+    invoiceNo     String        @unique
+    date          DateTime      @default(now())
+    customerId    Int
+    customer      Customer      @relation(fields: [customerId], references: [id])
+    subtotal      Decimal
+    total         Decimal
+    received      Decimal       @default(0)
+    paymentMethod PaymentMethod @default(CREDIT)
+    notes         String?
+    lines         SaleLine[]
+    createdAt     DateTime      @default(now())
+}
+
+model SaleLine {
+    id         Int     @id @default(autoincrement())
+    saleId     Int
+    itemId     Int
+    qty        Decimal
+    rate       Decimal
+    costRate   Decimal
+    amount     Decimal
+    costAmount Decimal
+    sale       Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+    item       Item    @relation(fields: [itemId], references: [id])
+}
+
+model Expense {
+    id            Int           @id @default(autoincrement())
+    date          DateTime      @default(now())
+    category      String
+    description   String
+    amount        Decimal
+    paymentMethod PaymentMethod @default(CASH)
+}
+
+model StockMove {
+    id      Int      @id @default(autoincrement())
+    date    DateTime @default(now())
+    itemId  Int
+    type    TxType
+    qty     Decimal
+    rate    Decimal
+    value   Decimal
+    refType String?
+    refId   Int?
+    item    Item     @relation(fields: [itemId], references: [id])
+}
+
+model LedgerEntry {
+    id          Int      @id @default(autoincrement())
+    date        DateTime @default(now())
+    accountType String
+    accountId   Int?
+    debit       Decimal  @default(0)
+    credit      Decimal  @default(0)
+    description String
+    refType     String?
+    refId       Int?
+}
