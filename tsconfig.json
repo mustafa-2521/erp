@@ -21,7 +21,9 @@
     "allowJs": true,
     "skipLibCheck": true,
     "incremental": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "baseUrl": ".",
+    "paths": { "@/*": ["./src/*"] }
   },
   "include": [
     "**/*.ts",

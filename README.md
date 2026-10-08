@@ -1,24 +1,27 @@
 # Mustafa Inks ERP
 
-Responsive manufacturing and inventory ERP built with Next.js, NestJS, Prisma and MySQL.
+Single-owner manufacturing & inventory tracker. Next.js (App Router) + Supabase (Postgres, Auth, RLS).
 
-## Start locally with WAMP
+## Architecture
 
-1. Start MySQL in WAMP and create a database named `mustafa_inks_erp` using `utf8mb4`.
-2. Copy `.env.example` to `.env` in the project root. Set the MySQL username and password in `DATABASE_URL` if your WAMP credentials differ from the example.
-3. Copy `packages/database/.env.example` to `packages/database/.env` and use the same `DATABASE_URL`.
-4. From the project root run:
+- **Database** (`supabase/migrations/`): tables, constraints, indexes, RLS and business logic.
+- **Business transactions** are atomic Postgres functions called with `supabase.rpc`:
+  `create_purchase`, `create_sale`, `create_production`, `create_expense`, `create_recipe`, `dashboard_summary`.
+  They update stock (weighted-average cost), party balances, stock moves and the double-entry ledger in one transaction.
+- **Security**: RLS on every table. Only the owner (auth user with `app_metadata.erp_owner = true`) has access.
+  Transaction/ledger tables are insert-only. Public signups must stay disabled.
+- **Web** (`src/`): Next.js app uses the publishable key; middleware gates all routes behind login.
 
-   ```sh
-   npm install
-   npm run db:generate
-   npm run db:push
-   npm run dev
+## Setup
+
+1. Copy `.env.example` to `.env.local` and fill in the project URL and publishable key.
+2. In the Supabase dashboard: Authentication → Sign In / Providers → disable "Allow new users to sign up".
+3. Create the owner user (Authentication → Users → Add user, auto-confirm), then run once in the SQL editor:
+   ```sql
+   update auth.users
+   set raw_app_meta_data = raw_app_meta_data || '{"erp_owner": true}'
+   where email = 'you@example.com';
    ```
+4. `npm install && npm run dev` → http://localhost:3000
 
-5. Open `http://localhost:3000`.
-
-The application has a dashboard, item inventory, customer and vendor records, purchases, sales, recipes, production batches, expenses, account ledger and summary reports. Purchases increase stock and update weighted-average cost. Sales reduce stock, reject insufficient inventory, record cost of goods sold and update customer balances. Production consumes recipe ingredients and adds finished stock.
-
-If your MySQL password contains reserved URL characters, URL-encode them in `DATABASE_URL`.
-# erp
+Schema changes: add a new file in `supabase/migrations/` and apply it (never edit applied migrations).
